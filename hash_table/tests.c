@@ -3,58 +3,210 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <limits.h>
 
-int main()
-{
-    printf("Тест: базовые операции");
-    HashTable *table = createHashTable(sizeof(int), sizeof(int));
-    assert(table != NULL);
+int cmp_int(const void* a, const void* b) {
+    return *(int*)a == *(int*)b;
+}
 
-    int key = 1, val = 100;
-    setItemHashTable(table, &key, &val, HashInt, intEquals);
-
-    int *res = getItemHashTable(table, &key, HashInt, intEquals);
-    assert(res && *res == 100);
-    printf("нормас\n");
-
-    printf("Тест: коллизии  ");
-    int key1 = 1, key2 = 11; 
-    int val1 = 10, val2 = 20;
-    setItemHashTable(table, &key1, &val1, HashInt, intEquals);
-    setItemHashTable(table, &key2, &val2, HashInt, intEquals);
-
-    int *r1 = getItemHashTable(table, &key1, HashInt, intEquals);
-    int *r2 = getItemHashTable(table, &key2, HashInt, intEquals);
-    assert(r1 && *r1 == 10);
-    assert(r2 && *r2 == 20);
-    printf("нормас\n");
-
-    printf("Тест: удаление и повторная вставка");
-    int *deleted = popItemHashTable(table, &key1, HashInt, intEquals);
-    assert(deleted && *deleted == 10);
-    free(deleted);
-
-    assert(getItemHashTable(table, &key1, HashInt, intEquals) == NULL);
-
-    setItemHashTable(table, &key1, &val1, HashInt, intEquals);
-    int *r3 = getItemHashTable(table, &key1, HashInt, intEquals);
-    assert(r3 && *r3 == 10);
-    printf("нормас\n");
-
-    printf("Тест: угловые случаи и некорректные данные");
-    assert(getItemHashTable(NULL, &key, HashInt, intEquals) == NULL);
-    assert(getItemHashTable(table, NULL, HashInt, intEquals) == NULL);
-    assert(popItemHashTable(NULL, &key, HashInt, intEquals) == NULL);
-    assert(popItemHashTable(table, NULL, HashInt, intEquals) == NULL);
-    setItemHashTable(NULL, &key, &val, HashInt, intEquals);
-    setItemHashTable(table, NULL, &val, HashInt, intEquals);
-    setItemHashTable(table, &key, NULL, HashInt, intEquals);
-    printf("OK\n");
-
+void test_empty_table() {
+    printf("Тест пустой таблицы: ");
+    HashTable* table = createHashTable(sizeof(int), sizeof(int));
+    
+    int key = 5;
+    void* result = getItemHashTable(table, &key, HashInt, cmp_int);
+    assert(result == NULL);
+    
+    result = popItemHashTable(table, &key, HashInt, cmp_int);
+    assert(result == NULL);
+    
     freeHashTable(table);
+    printf("пройден\n");
+}
 
-    printf("ура-победа\n");
+void test_minimal_data() {
+    printf("Тест минимальных данных: ");
+    HashTable* table = createHashTable(sizeof(int), sizeof(int));
+    
+    int key = 42;
+    int value = 100;
+    
+    setItemHashTable(table, &key, &value, HashInt, cmp_int);
+    assert(table->size == 1);
+    
+    int* res = getItemHashTable(table, &key, HashInt, cmp_int);
+    assert(res != NULL);
+    assert(*res == 100);
+    
+    freeHashTable(table);
+    printf("пройден\n");
+}
+
+void test_collisions() {
+    printf("Тест коллизий: ");
+    HashTable* table = createHashTable(sizeof(int), sizeof(int));
+    
+    int keys[] = {1, 17, 33, 49, 65};
+    for (int i = 0; i < 5; i++) {
+        int value = i * 100;
+        setItemHashTable(table, &keys[i], &value, HashInt, cmp_int);
+    }
+    
+    assert(table->size == 5);
+    
+    for (int i = 0; i < 5; i++) {
+        int* res = getItemHashTable(table, &keys[i], HashInt, cmp_int);
+        assert(res != NULL);
+        assert(*res == i * 100);
+    }
+    
+    freeHashTable(table);
+    printf("пройден\n");
+}
+
+void test_rehash() {
+    printf("Тест переполнения таблицы: ");
+    HashTable* table = createHashTable(sizeof(int), sizeof(int));
+    
+    int initial_capacity = table->capacity;
+    
+    for (int i = 0; i < 7; i++) {
+        setItemHashTable(table, &i, &i, HashInt, cmp_int);
+    }
+    
+    assert(table->capacity > initial_capacity);
+    assert(table->size == 7);
+    
+    for (int i = 0; i < 7; i++) {
+        int* res = getItemHashTable(table, &i, HashInt, cmp_int);
+        assert(res != NULL);
+        assert(*res == i);
+    }
+    
+    freeHashTable(table);
+    printf("пройден\n");
+}
+
+void test_delete_and_reinsert() {
+    printf("Тест удаления и повторной вставки: ");
+    HashTable* table = createHashTable(sizeof(int), sizeof(int));
+    
+    int key = 10;
+    int value1 = 100;
+    int value2 = 200;
+    
+    setItemHashTable(table, &key, &value1, HashInt, cmp_int);
+    assert(table->size == 1);
+    
+    int* popped = popItemHashTable(table, &key, HashInt, cmp_int);
+    assert(popped != NULL);
+    assert(*popped == 100);
+    free(popped);
+    assert(table->size == 0);
+    
+    void* res = getItemHashTable(table, &key, HashInt, cmp_int);
+    assert(res == NULL);
+    
+    setItemHashTable(table, &key, &value2, HashInt, cmp_int);
+    assert(table->size == 1);
+    
+    int* new_res = getItemHashTable(table, &key, HashInt, cmp_int);
+    assert(new_res != NULL);
+    assert(*new_res == 200);
+    
+    freeHashTable(table);
+    printf("пройден\n");
+}
+
+void test_invalid_arguments() {
+    printf("Тест некорректных данных: ");
+    
+    HashTable* table = createHashTable(sizeof(int), sizeof(int));
+    int key = 1;
+    int value = 100;
+    
+    setItemHashTable(NULL, &key, &value, HashInt, cmp_int);
+    setItemHashTable(table, NULL, &value, HashInt, cmp_int);
+    setItemHashTable(table, &key, NULL, HashInt, cmp_int);
+    setItemHashTable(table, &key, &value, NULL, cmp_int);
+    setItemHashTable(table, &key, &value, HashInt, NULL);
+    
+    void* res = getItemHashTable(NULL, &key, HashInt, cmp_int);
+    assert(res == NULL);
+    res = getItemHashTable(table, NULL, HashInt, cmp_int);
+    assert(res == NULL);
+    
+    res = popItemHashTable(NULL, &key, HashInt, cmp_int);
+    assert(res == NULL);
+    res = popItemHashTable(table, NULL, HashInt, cmp_int);
+    assert(res == NULL);
+    
+    unsigned long collisions = getCollisionCount(NULL, HashInt);
+    assert(collisions == 0);
+    collisions = getCollisionCount(table, NULL);
+    assert(collisions == 0);
+    
+    freeHashTable(NULL);
+    freeHashTable(table);
+    printf("пройден\n");
+}
+
+void test_typical_scenarios() {
+    printf("Тест типичных сценариев: ");
+    HashTable* table = createHashTable(sizeof(int), sizeof(int));
+    
+    for (int i = 0; i < 5; i++) {
+        int value = i * 10;
+        setItemHashTable(table, &i, &value, HashInt, cmp_int);
+    }
+    assert(table->size == 5);
+    
+    for (int i = 0; i < 5; i++) {
+        int* res = getItemHashTable(table, &i, HashInt, cmp_int);
+        assert(res != NULL);
+        assert(*res == i * 10);
+    }
+    
+    int key_to_remove = 2;
+    int* popped = popItemHashTable(table, &key_to_remove, HashInt, cmp_int);
+    assert(popped != NULL);
+    free(popped);
+    assert(table->size == 4);
+    
+    void* res = getItemHashTable(table, &key_to_remove, HashInt, cmp_int);
+    assert(res == NULL);
+    
+    int new_value = 999;
+    setItemHashTable(table, &key_to_remove, &new_value, HashInt, cmp_int);
+    assert(table->size == 5);
+    
+    int* new_res = getItemHashTable(table, &key_to_remove, HashInt, cmp_int);
+    assert(new_res != NULL);
+    assert(*new_res == 999);
+    
+    int key_to_update = 3;
+    int updated_value = 777;
+    setItemHashTable(table, &key_to_update, &updated_value, HashInt, cmp_int);
+    assert(table->size == 5);
+    
+    int* updated_res = getItemHashTable(table, &key_to_update, HashInt, cmp_int);
+    assert(updated_res != NULL);
+    assert(*updated_res == 777);
+    
+    freeHashTable(table);
+    printf("пройден\n");
+}
+
+int main() {
+    printf("Тесты\n\n");
+    
+    test_empty_table();
+    test_minimal_data();
+    test_collisions();
+    test_rehash();
+    test_delete_and_reinsert();
+    test_invalid_arguments();
+    test_typical_scenarios();
+    
+    printf("\nУра-победа\n");
     return 0;
 }
