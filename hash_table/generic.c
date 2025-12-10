@@ -5,6 +5,7 @@
 #include "../../lab3/vector/generic.h"
 #include "generic.h"
 
+
 #define LOAD_FACTOR 0.5
 
 //всякое вспомогательное

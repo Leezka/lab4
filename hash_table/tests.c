@@ -1,3 +1,4 @@
+
 #include "generic.h"
 #include <assert.h>
 #include <stdio.h>
@@ -196,3 +197,4 @@ int main() {
     printf("\nУра-победа\n");
     return 0;
 }
+
